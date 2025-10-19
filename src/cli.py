@@ -1,5 +1,7 @@
 import typer
 from rich.console import Console
+from src.converter import convert_rules
+
 
 app = typer.Typer(help="Cilium Policy CLI — convert, test, and visualize policies.")
 console = Console()
@@ -18,6 +20,13 @@ def test(policy: str = "sample_data/cilium_policy.yaml"):
 def visualize(policy: str = "sample_data/cilium_policy.yaml"):
     """Visualize policy connections (mock visualization)."""
     console.print(f"Visualizing [magenta]{policy}[/magenta]...", style="bold magenta")
+
+
+@app.command()
+def convert(json_file: str, output: str = "converted_policy.yaml"):
+    """Convert JSON firewall rules into Cilium YAML."""
+    convert_rules(json_file, output)
+
 
 if __name__ == "__main__":
     app()
