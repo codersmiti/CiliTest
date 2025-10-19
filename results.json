@@ -1,0 +1,18 @@
+[
+  {
+    "src": "frontend",
+    "dest": "backend",
+    "port": "80",
+    "status": "\u2705 allowed",
+    "latency_ms": 110.3,
+    "loss_pct": 0.12
+  },
+  {
+    "src": "admin",
+    "dest": "db",
+    "port": "5432",
+    "status": "\u2705 allowed",
+    "latency_ms": 69.2,
+    "loss_pct": 0.29
+  }
+]
