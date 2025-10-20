@@ -33,7 +33,7 @@ def convert_rules(json_path: str, output_path: str = "converted_policy.yaml"):
     with open(output_path, "w") as f:
         yaml.dump(cnp, f)
 
-    table = Table(title="✅ Converted Rules")
+    table = Table(title="Converted Rules")
     table.add_column("Source")
     table.add_column("Destination")
     table.add_column("Port")
@@ -41,4 +41,4 @@ def convert_rules(json_path: str, output_path: str = "converted_policy.yaml"):
     for r in rules:
         table.add_row(r["src"], r["dest"], str(r["port"]), r["proto"])
     console.print(table)
-    console.print(f"[green]Saved YAML → {output_path}[/green]")
+    console.print(f"[green]Saved YAML to {output_path}[/green]")

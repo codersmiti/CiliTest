@@ -8,3 +8,5 @@ rich==14.2.0
 shellingham==1.5.4
 typer==0.19.2
 typing_extensions==4.15.0
+networkx>=3.0
+matplotlib>=3.7.0
