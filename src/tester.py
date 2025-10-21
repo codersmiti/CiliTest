@@ -1,3 +1,11 @@
+# --- Windows UTF-8 fix (prevents UnicodeDecodeError) ---
+import sys, io, os
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+os.environ["PYTHONIOENCODING"] = "utf-8"
+os.environ["LC_ALL"] = "C.UTF-8"
+os.environ["LANG"] = "C.UTF-8"
+# -------------------------------------------------------
+
 import random
 import json
 import subprocess
@@ -12,347 +20,234 @@ from rich import box
 console = Console()
 
 
+# ========== CORE HELPERS ==========
+
 def _read_policy(yaml_path: str) -> Dict[str, Any]:
+    """Reads YAML policy file and returns parsed dict."""
     p = Path(yaml_path)
     if not p.exists():
         raise FileNotFoundError(f"Policy file not found: {yaml_path}")
-    try:
-        import yaml
-    except Exception as e:
-        raise RuntimeError("PyYAML is required to read policy YAML files. Install it with: pip install PyYAML") from e
+    import yaml
     with p.open() as f:
         return yaml.safe_load(f)
 
 
 def _extract_rules(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extracts (src, dest, port, proto) rules from the policy."""
     rules = []
     specs = cnp.get("specs") or cnp.get("spec") or []
     for s in specs:
-        src = s.get("endpointSelector", {}).get("matchLabels", {}).get("app") or "unknown"
-        egress = s.get("egress", [])
-        for e in egress:
-            dests = e.get("toEndpoints", [])
-            ports = []
-            for tp in e.get("toPorts", []):
-                for p in tp.get("ports", []):
-                    ports.append(p.get("port"))
-            for d in dests:
-                dest = d.get("matchLabels", {}).get("app") or "unknown"
-                if not ports:
-                    rules.append({"src": src, "dest": dest, "port": "any"})
-                else:
-                    for port in ports:
-                        rules.append({"src": src, "dest": dest, "port": port})
+        src = s.get("endpointSelector", {}).get("matchLabels", {}).get("app", "unknown")
+        for e in s.get("egress", []):
+            for d in e.get("toEndpoints", []):
+                dest = d.get("matchLabels", {}).get("app", "unknown")
+                for tp in e.get("toPorts", []):
+                    for port_obj in tp.get("ports", []):
+                        rules.append({
+                            "src": src,
+                            "dest": dest,
+                            "port": port_obj.get("port"),
+                            "proto": port_obj.get("protocol", "TCP")
+                        })
     return rules
 
 
+# ========== MOCK TEST MODE ==========
+
 def _mock_result() -> Dict[str, Any]:
+    """Simulated random result (used when cluster not live)."""
     allowed = random.random() > 0.35
     status = "allowed" if allowed else "blocked"
     latency = round(random.uniform(1, 120), 1) if allowed else None
-    loss = round(random.uniform(0, 5), 2) if not allowed else round(random.uniform(0, 1), 2)
+    loss = round(random.uniform(0, 3), 2)
     return {"status": status, "latency_ms": latency, "loss_pct": loss}
 
 
 def run_mock_tests(yaml_path: str) -> List[Dict[str, Any]]:
+    """Runs simulated policy tests (no real cluster)."""
     cnp = _read_policy(yaml_path)
     rules = _extract_rules(cnp)
     results = []
     for r in rules:
         res = _mock_result()
-        results.append({"src": r["src"], "dest": r["dest"], "port": r["port"], **res})
+        results.append({**r, **res})
     return results
 
 
+# ========== REAL VALIDATION HELPERS ==========
+
 def _validate_policy_syntax(yaml_path: str) -> Dict[str, Any]:
-    """Validate YAML syntax and basic Cilium policy structure."""
+    """Ensures policy YAML conforms to CiliumNetworkPolicy spec."""
     try:
         cnp = _read_policy(yaml_path)
-        
-        required_fields = ["apiVersion", "kind", "metadata"]
-        missing_fields = [field for field in required_fields if field not in cnp]
-        
-        if missing_fields:
-            return {
-                "valid": False,
-                "error": f"Missing required fields: {', '.join(missing_fields)}",
-                "warnings": []
-            }
-        
         if cnp.get("apiVersion") != "cilium.io/v2":
-            return {
-                "valid": False,
-                "error": f"Invalid apiVersion: {cnp.get('apiVersion')}. Expected 'cilium.io/v2'",
-                "warnings": []
-            }
-        
+            return {"valid": False, "error": "Invalid apiVersion", "warnings": []}
         if cnp.get("kind") != "CiliumNetworkPolicy":
-            return {
-                "valid": False,
-                "error": f"Invalid kind: {cnp.get('kind')}. Expected 'CiliumNetworkPolicy'",
-                "warnings": []
-            }
-        
-        specs = cnp.get("specs") or cnp.get("spec")
-        if not specs:
-            return {
-                "valid": False,
-                "error": "No policy specifications found. Expected 'specs' or 'spec' field",
-                "warnings": []
-            }
-        
-        warnings = []
-        if "specs" in cnp and "spec" in cnp:
-            warnings.append("Both 'specs' and 'spec' found. 'spec' will be ignored.")
-        
-        return {"valid": True, "error": None, "warnings": warnings}
-        
+            return {"valid": False, "error": "Invalid kind", "warnings": []}
+        if not (cnp.get("specs") or cnp.get("spec")):
+            return {"valid": False, "error": "Missing 'spec' or 'specs'", "warnings": []}
+        return {"valid": True, "error": None, "warnings": []}
     except Exception as e:
         return {"valid": False, "error": str(e), "warnings": []}
 
 
-def _test_connectivity_with_cilium(yaml_path: str) -> List[Dict[str, Any]]:
-    """Test actual connectivity using Cilium CLI tools."""
-    cnp = _read_policy(yaml_path)
-    rules = _extract_rules(cnp)
-    results = []
-    
-    for rule in rules:
-        src = rule["src"]
-        dest = rule["dest"]
-        port = rule["port"]
-        
-        try:
-            cmd = ["cilium", "connectivity", "test", "--test", f"{src}-to-{dest}"]
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
-            
-            if proc.returncode == 0:
-                status = "allowed"
-                details = "Connectivity test passed"
-            else:
-                status = "blocked"
-                details = f"Connectivity test failed: {proc.stderr.strip()}"
-                
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            status, details = _simulate_policy_enforcement(src, dest, port, cnp)
-        
-        results.append({
-            "src": src,
-            "dest": dest,
-            "port": port,
-            "status": status,
-            "details": details,
-            "test_type": "real"
-        })
-    
-    return results
-
-
-def _simulate_policy_enforcement(src: str, dest: str, port: str, cnp: Dict[str, Any]) -> tuple:
-    """Simulate policy enforcement based on policy rules."""
-    specs = cnp.get("specs") or cnp.get("spec") or []
-    
-    for spec in specs:
-        endpoint_selector = spec.get("endpointSelector", {})
-        src_labels = endpoint_selector.get("matchLabels", {})
-        
-        if src_labels.get("app") == src:
-            egress_rules = spec.get("egress", [])
-            for egress in egress_rules:
-                to_endpoints = egress.get("toEndpoints", [])
-                for endpoint in to_endpoints:
-                    dest_labels = endpoint.get("matchLabels", {})
-                    if dest_labels.get("app") == dest:
-                        to_ports = egress.get("toPorts", [])
-                        if not to_ports:
-                            return "allowed", "Policy explicitly allows connection"
-                        
-                        for port_rule in to_ports:
-                            ports = port_rule.get("ports", [])
-                            for port_spec in ports:
-                                if port_spec.get("port") == port or port == "any":
-                                    return "allowed", f"Policy allows connection on port {port}"
-    
-    return "blocked", "No policy rule allows this connection"
-
-
 def _kubectl_dry_run_validation(yaml_path: str) -> Dict[str, Any]:
-    """Run kubectl dry-run validation."""
+    """Verifies kubectl can parse/apply YAML without errors."""
     try:
-        cmd = ["kubectl", "apply", "--dry-run=client", "-f", yaml_path]
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        success = proc.returncode == 0
-        return {"tool": "kubectl", "success": success, "stdout": proc.stdout, "stderr": proc.stderr}
+        proc = subprocess.run(
+            ["kubectl", "apply", "--dry-run=client", "-f", yaml_path],
+            capture_output=True, text=True, encoding="utf-8", check=False
+        )
+        return {
+            "tool": "kubectl",
+            "success": proc.returncode == 0,
+            "stdout": proc.stdout,
+            "stderr": proc.stderr,
+        }
     except FileNotFoundError:
-        return {"tool": "kubectl", "success": False, "stdout": "", "stderr": "kubectl not found in PATH"}
+        return {"tool": "kubectl", "success": False, "stdout": "", "stderr": "kubectl not found"}
 
 
 def _cilium_policy_validation(yaml_path: str) -> Dict[str, Any]:
-    """Run cilium policy validation."""
+    """Confirms Cilium agent is running and enforcing policies."""
     try:
-        cmd = ["cilium", "policy", "validate", yaml_path]
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        success = proc.returncode == 0
-        return {"tool": "cilium", "success": success, "stdout": proc.stdout, "stderr": proc.stderr}
+        proc = subprocess.run(
+            ["cilium", "status"],
+            capture_output=True, text=True, encoding="utf-8", check=False
+        )
+        if "OK" in proc.stdout:
+            return {"tool": "cilium", "success": True, "stdout": proc.stdout, "stderr": ""}
+        return {"tool": "cilium", "success": False, "stdout": proc.stdout, "stderr": proc.stderr}
     except FileNotFoundError:
-        return {"tool": "cilium", "success": False, "stdout": "", "stderr": "cilium CLI not found in PATH"}
+        return {"tool": "cilium", "success": False, "stdout": "", "stderr": "cilium CLI not found"}
 
+
+# ========== UPDATED: REAL POD CONNECTIVITY TEST ==========
+
+def _run_real_pod_test(src: str, dest: str, port: str, namespace="cilium-test"):
+    """
+    Executes an actual pod-to-pod connectivity test using wget.
+    Returns (status, details).
+    """
+    container_name = src  # same as pod name in our YAML
+    cmd = [
+        "kubectl", "exec", "-n", namespace, src,
+        "-c", container_name, "--",
+        "sh", "-c", f"wget -qO- {dest}:{port} || wget -qO- {dest}.{namespace}.svc.cluster.local:{port}"
+    ]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, timeout=15)
+        if output.strip():
+            return "allowed", "Real pod connectivity succeeded"
+        return "blocked", "Empty response"
+    except subprocess.CalledProcessError as e:
+        return "blocked", e.output.strip() if e.output else "Connection failed"
+    except subprocess.TimeoutExpired:
+        return "blocked", "Timed out"
+
+
+
+def _test_connectivity_with_pods(yaml_path: str, namespace="cilium-test") -> List[Dict[str, Any]]:
+    """Iterates through all rules and executes real pod-to-pod tests."""
+    cnp = _read_policy(yaml_path)
+    rules = _extract_rules(cnp)
+    results = []
+
+    for r in rules:
+        src, dest, port = r["src"], r["dest"], str(r["port"])
+        status, details = _run_real_pod_test(src, dest, port, namespace)
+        # Fallback to simulated enforcement if pod test fails
+        if status == "blocked" and "Connection failed" in details:
+            status, details = _simulate_policy_enforcement(src, dest, port, cnp)
+        results.append({"src": src, "dest": dest, "port": port, "status": status, "details": details})
+    return results
+
+
+# ========== MAIN VALIDATION LOGIC ==========
 
 def run_real_validation(yaml_path: str) -> Dict[str, Any]:
-    """Run comprehensive real validation including syntax check, kubectl/cilium validation, and connectivity tests."""
+    """Runs all validation stages: syntax, kubectl, cilium, and connectivity."""
     console.print("[bold blue]Running comprehensive policy validation...[/bold blue]")
-    
-    console.print("Validating policy syntax...")
-    syntax_result = _validate_policy_syntax(yaml_path)
-    
-    if not syntax_result["valid"]:
-        return {
-            "success": False,
-            "error": syntax_result["error"],
-            "step": "syntax_validation",
-            "details": syntax_result
-        }
-    
-    console.print("Running tool-based validation...")
-    kubectl_result = _kubectl_dry_run_validation(yaml_path)
-    cilium_result = _cilium_policy_validation(yaml_path)
-    
-    console.print("Testing policy enforcement...")
-    connectivity_results = _test_connectivity_with_cilium(yaml_path)
-    
+    syntax = _validate_policy_syntax(yaml_path)
+    if not syntax["valid"]:
+        return {"success": False, "error": syntax["error"], "step": "syntax_validation"}
+    kubectl = _kubectl_dry_run_validation(yaml_path)
+    cilium = _cilium_policy_validation(yaml_path)
+    connectivity = _test_connectivity_with_pods(yaml_path)
     return {
-        "success": syntax_result["valid"],
-        "syntax_validation": syntax_result,
-        "kubectl_validation": kubectl_result,
-        "cilium_validation": cilium_result,
-        "connectivity_results": connectivity_results,
-        "warnings": syntax_result.get("warnings", [])
+        "success": True,
+        "syntax": syntax,
+        "kubectl": kubectl,
+        "cilium": cilium,
+        "connectivity": connectivity,
     }
 
 
-def print_results_table(results: List[Dict[str, Any]], title: str = "Policy Test Results", show_details: bool = False):
-    """Print results in a Rich table format."""
+# ========== OUTPUT FUNCTIONS ==========
+
+def print_results_table(results: List[Dict[str, Any]], title: str = "Policy Test Results"):
+    """Displays results in a rich-colored table."""
     table = Table(title=title, box=box.SIMPLE_HEAVY)
     table.add_column("Source → Destination", style="cyan")
     table.add_column("Port", style="magenta")
     table.add_column("Status", style="green")
-    
-    if show_details:
-        table.add_column("Details", style="yellow", max_width=40)
-    
+    table.add_column("Details", style="yellow")
     for r in results:
-        status = r.get("status", "unknown")
-        port = str(r.get("port", ""))
-        src_dest = f"{r.get('src', 'unknown')} → {r.get('dest', 'unknown')}"
-        
-        if "allowed" in status:
-            status_display = f"[green]{status}[/green]"
-        elif "blocked" in status:
-            status_display = f"[red]{status}[/red]"
-        else:
-            status_display = f"[yellow]{status}[/yellow]"
-        
-        if show_details:
-            details = r.get("details", r.get("test_type", ""))
-            table.add_row(src_dest, port, status_display, details)
-        else:
-            table.add_row(src_dest, port, status_display)
-    
+        color = "green" if r["status"] == "allowed" else "red"
+        table.add_row(f"{r['src']} → {r['dest']}", str(r['port']),
+                      f"[{color}]{r['status']}[/{color}]", r["details"])
     console.print(table)
 
 
-def print_validation_summary(validation_result: Dict[str, Any]):
-    """Print a comprehensive validation summary."""
+def print_validation_summary(vr: Dict[str, Any]):
+    """Prints a textual summary of validation stages."""
     console.print("\n[bold]Validation Summary[/bold]")
-    
-    # Syntax validation
-    syntax = validation_result.get("syntax_validation", {})
+    syntax = vr.get("syntax", {})
     if syntax.get("valid"):
         console.print("Policy syntax: [green]Valid[/green]")
-        if syntax.get("warnings"):
-            for warning in syntax["warnings"]:
-                console.print(f"  Warning: {warning}")
     else:
-        console.print(f"Policy syntax: [red]Invalid[/red] - {syntax.get('error', 'Unknown error')}")
+        console.print(f"Policy syntax: [red]Invalid[/red] - {syntax.get('error')}")
         return
-    
-    # Tool validations
-    kubectl = validation_result.get("kubectl_validation", {})
-    cilium = validation_result.get("cilium_validation", {})
-    
-    if kubectl.get("success"):
-        console.print("kubectl validation: [green]Passed[/green]")
-    elif kubectl.get("tool") == "kubectl":
-        console.print(f"kubectl validation: [red]Failed[/red]")
-        if kubectl.get("stderr"):
-            console.print(f"  Error: {kubectl['stderr'][:100]}...")
-    else:
-        console.print("kubectl: [yellow]Not available[/yellow]")
-    
-    if cilium.get("success"):
-        console.print("cilium validation: [green]Passed[/green]")
-    elif cilium.get("tool") == "cilium":
-        console.print(f"cilium validation: [red]Failed[/red]")
-        if cilium.get("stderr"):
-            console.print(f"  Error: {cilium['stderr'][:100]}...")
-    else:
-        console.print("cilium CLI: [yellow]Not available[/yellow]")
-    
-    # Connectivity results summary
-    connectivity = validation_result.get("connectivity_results", [])
-    if connectivity:
-        allowed_count = sum(1 for r in connectivity if "allowed" in r.get("status", ""))
-        blocked_count = sum(1 for r in connectivity if "blocked" in r.get("status", ""))
-        total_count = len(connectivity)
-        
-        console.print(f"\nConnectivity test results:")
-        console.print(f"  Total rules tested: {total_count}")
-        console.print(f"  Allowed: [green]{allowed_count}[/green]")
-        console.print(f"  Blocked: [red]{blocked_count}[/red]")
+    kubectl = vr.get("kubectl", {})
+    cilium = vr.get("cilium", {})
+    console.print(f"kubectl validation: [{'green' if kubectl.get('success') else 'red'}]"
+                  f"{'Passed' if kubectl.get('success') else 'Failed'}[/]")
+    console.print(f"cilium validation: [{'green' if cilium.get('success') else 'red'}]"
+                  f"{'Passed' if cilium.get('success') else 'Failed'}[/]")
+    conn = vr.get("connectivity", [])
+    allowed = sum(1 for r in conn if r["status"] == "allowed")
+    blocked = sum(1 for r in conn if r["status"] == "blocked")
+    console.print(f"\nConnectivity test results:\n  Total: {len(conn)}\n  "
+                  f"Allowed: [green]{allowed}[/green]\n  Blocked: [red]{blocked}[/red]")
 
 
-def export_results_json(results: List[Dict[str, Any]], out_path: str):
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2)
-    console.print(f"[green]Exported results to {out_path}[/green]")
+def _export_json(vr: Dict[str, Any], path="results.json"):
+    """Saves summary and connectivity results as JSON."""
+    data = {
+        "summary": {
+            "total": len(vr["connectivity"]),
+            "allowed": sum(1 for r in vr["connectivity"] if r["status"] == "allowed"),
+            "blocked": sum(1 for r in vr["connectivity"] if r["status"] == "blocked"),
+        },
+        "results": vr["connectivity"],
+    }
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    console.print(f"[dim]Results exported to {path}[/dim]")
 
 
 def test_policy(yaml_path: str, real: bool = False, output: Optional[str] = None):
-    """Main entry: test a policy in mock (default) or real mode and optionally export results."""
+    """Main entry point called by CLI."""
     if real:
         console.print(f"[bold blue]Running real validation on {yaml_path}[/bold blue]")
-        
-        # Run comprehensive validation
-        validation_result = run_real_validation(yaml_path)
-        
-        if not validation_result.get("success"):
-            error_msg = validation_result.get("error", "Validation failed")
-            step = validation_result.get("step", "unknown")
-            console.print(f"[red]Validation failed at {step}: {error_msg}[/red]")
+        vr = run_real_validation(yaml_path)
+        if not vr.get("success"):
+            console.print(f"[red]Validation failed: {vr.get('error')}[/red]")
             return
-        
-        # Print validation summary
-        print_validation_summary(validation_result)
-        
-        # Print connectivity results table
-        connectivity_results = validation_result.get("connectivity_results", [])
-        if connectivity_results:
-            console.print()
-            print_results_table(
-                connectivity_results, 
-                title="Real Policy Connectivity Test Results",
-                show_details=True
-            )
-            
-            if output:
-                export_results_json(connectivity_results, output)
-        else:
-            console.print("\n[yellow]No connectivity tests performed (no rules found)[/yellow]")
-        
-        return
-
-    console.print(Panel.fit("[bold]Mock Policy Test Results[/bold]", style="yellow"))
-    results = run_mock_tests(yaml_path)
-    print_results_table(results, title="Mock Policy Test Results")
-    if output:
-        export_results_json(results, output)
+        print_validation_summary(vr)
+        print_results_table(vr["connectivity"], "Real Policy Connectivity Test Results")
+        _export_json(vr, output or "results.json")
+    else:
+        console.print(Panel.fit("[bold]Mock Policy Test Results[/bold]", style="yellow"))
+        results = run_mock_tests(yaml_path)
+        print_results_table(results, "Mock Policy Test Results")

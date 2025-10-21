@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "total": 6,
+    "allowed": 2,
+    "blocked": 4
+  },
+  "results": [
+    {
+      "src": "frontend",
+      "dest": "backend",
+      "port": "80",
+      "status": "allowed",
+      "details": "Real pod connectivity succeeded"
+    },
+    {
+      "src": "frontend",
+      "dest": "database",
+      "port": "5432",
+      "status": "blocked",
+      "details": "Timed out"
+    },
+    {
+      "src": "frontend",
+      "dest": "cache",
+      "port": "6379",
+      "status": "blocked",
+      "details": "Timed out"
+    },
+    {
+      "src": "backend",
+      "dest": "database",
+      "port": "5432",
+      "status": "allowed",
+      "details": "Real pod connectivity succeeded"
+    },
+    {
+      "src": "cache",
+      "dest": "backend",
+      "port": "6379",
+      "status": "blocked",
+      "details": "Timed out"
+    },
+    {
+      "src": "database",
+      "dest": "backend",
+      "port": "80",
+      "status": "blocked",
+      "details": "Timed out"
+    }
+  ]
+}

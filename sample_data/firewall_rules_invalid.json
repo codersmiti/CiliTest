@@ -1,0 +1,5 @@
+[
+  { "src": "frontend", "dest": "backend", "port": 70000, "proto": "tcp" }, 
+  { "src": "admin", "dest": "db" }, 
+  { "src": "api", "dest": "cache", "port": 6379, "proto": "ftp" }
+]

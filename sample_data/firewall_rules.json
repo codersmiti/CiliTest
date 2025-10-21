@@ -1,14 +1,8 @@
 [
-  {
-    "src": "frontend",
-    "dest": "backend",
-    "port": 80,
-    "proto": "tcp"
-  },
-  {
-    "src": "admin",
-    "dest": "db",
-    "port": 5432,
-    "proto": "tcp"
-  }
+  { "src": "frontend", "dest": "backend", "port": 80, "proto": "tcp" },
+  { "src": "backend", "dest": "database", "port": 5432, "proto": "tcp" },
+  { "src": "cache", "dest": "backend", "port": 6379, "proto": "tcp" },
+  { "src": "frontend", "dest": "database", "port": 5432, "proto": "tcp" },
+  { "src": "frontend", "dest": "cache", "port": 6379, "proto": "tcp" },
+  { "src": "database", "dest": "backend", "port": 80, "proto": "tcp" }
 ]
