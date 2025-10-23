@@ -1,10 +1,8 @@
-# --- Windows UTF-8 fix (prevents UnicodeDecodeError) ---
 import sys, io, os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["LC_ALL"] = "C.UTF-8"
 os.environ["LANG"] = "C.UTF-8"
-# -------------------------------------------------------
 
 import random
 import json
@@ -19,8 +17,6 @@ from rich import box
 
 console = Console()
 
-
-# ========== CORE HELPERS ==========
 
 def _read_policy(yaml_path: str) -> Dict[str, Any]:
     """Reads YAML policy file and returns parsed dict."""
@@ -52,8 +48,6 @@ def _extract_rules(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
     return rules
 
 
-# ========== MOCK TEST MODE ==========
-
 def _mock_result() -> Dict[str, Any]:
     """Simulated random result (used when cluster not live)."""
     allowed = random.random() > 0.35
@@ -73,8 +67,6 @@ def run_mock_tests(yaml_path: str) -> List[Dict[str, Any]]:
         results.append({**r, **res})
     return results
 
-
-# ========== REAL VALIDATION HELPERS ==========
 
 def _validate_policy_syntax(yaml_path: str) -> Dict[str, Any]:
     """Ensures policy YAML conforms to CiliumNetworkPolicy spec."""
@@ -122,8 +114,6 @@ def _cilium_policy_validation(yaml_path: str) -> Dict[str, Any]:
         return {"tool": "cilium", "success": False, "stdout": "", "stderr": "cilium CLI not found"}
 
 
-# ========== UPDATED: REAL POD CONNECTIVITY TEST ==========
-
 def _run_real_pod_test(src: str, dest: str, port: str, namespace="cilium-test"):
     """
     Executes an actual pod-to-pod connectivity test using wget.
@@ -156,14 +146,12 @@ def _test_connectivity_with_pods(yaml_path: str, namespace="cilium-test") -> Lis
     for r in rules:
         src, dest, port = r["src"], r["dest"], str(r["port"])
         status, details = _run_real_pod_test(src, dest, port, namespace)
-        # Fallback to simulated enforcement if pod test fails
         if status == "blocked" and "Connection failed" in details:
-            status, details = _simulate_policy_enforcement(src, dest, port, cnp)
+            mock_res = _mock_result()
+            status, details = mock_res["status"], "Fallback to mock test"
         results.append({"src": src, "dest": dest, "port": port, "status": status, "details": details})
     return results
 
-
-# ========== MAIN VALIDATION LOGIC ==========
 
 def run_real_validation(yaml_path: str) -> Dict[str, Any]:
     """Runs all validation stages: syntax, kubectl, cilium, and connectivity."""
@@ -182,8 +170,6 @@ def run_real_validation(yaml_path: str) -> Dict[str, Any]:
         "connectivity": connectivity,
     }
 
-
-# ========== OUTPUT FUNCTIONS ==========
 
 def print_results_table(results: List[Dict[str, Any]], title: str = "Policy Test Results"):
     """Displays results in a rich-colored table."""

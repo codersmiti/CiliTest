@@ -12,7 +12,7 @@ def convert_rules(json_path: str, output_path: str = "converted_policy.yaml"):
         with open(json_path) as f:
             rules = json.load(f)
     except Exception as e:
-        console.print(f"[red]❌ Error reading {json_path}: {e}[/red]")
+        console.print(f"[red]Error reading {json_path}: {e}[/red]")
         return
 
     grouped = defaultdict(list)
@@ -43,7 +43,7 @@ def convert_rules(json_path: str, output_path: str = "converted_policy.yaml"):
     with open(output_path, "w") as f:
         yaml.dump(cnp, f)
 
-    table = Table(title="✅ Converted Firewall Rules")
+    table = Table(title="Converted Firewall Rules")
     table.add_column("Source")
     table.add_column("Dest")
     table.add_column("Port")
@@ -51,7 +51,7 @@ def convert_rules(json_path: str, output_path: str = "converted_policy.yaml"):
     for r in rules:
         table.add_row(r["src"], r["dest"], str(r["port"]), r["proto"].upper())
     console.print(table)
-    console.print(f"[cyan]Saved YAML → {output_path}[/cyan]")
+    console.print(f"[cyan]Saved YAML to {output_path}[/cyan]")
 
 
 if __name__ == "__main__":

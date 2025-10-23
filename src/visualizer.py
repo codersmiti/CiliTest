@@ -1,4 +1,3 @@
-# src/visualizer.py
 import json
 import yaml
 from pathlib import Path
@@ -62,7 +61,6 @@ def _extract_connections(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Extract connections from Cilium Network Policy."""
     connections = []
     
-    # Handle both 'specs' (array) and 'spec' (single object) formats
     specs = []
     if "specs" in cnp and cnp["specs"]:
         specs = cnp["specs"]
@@ -80,11 +78,9 @@ def _extract_connections(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
             dest_endpoints = egress.get("toEndpoints", [])
             port_rules = egress.get("toPorts", [])
             
-            # Extract destination info
             for endpoint in dest_endpoints:
                 dest = endpoint.get("matchLabels", {}).get("app") or "unknown-dest"
                 
-                # Extract port info
                 if port_rules:
                     for port_rule in port_rules:
                         ports = port_rule.get("ports", [])
@@ -99,7 +95,6 @@ def _extract_connections(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
                                 "connection_type": "egress"
                             })
                 else:
-                    # No specific ports, allow all
                     connections.append({
                         "src": src,
                         "dest": dest,
@@ -122,64 +117,51 @@ def _create_network_graph(connections: List[Dict[str, Any]], output_path: str = 
         import matplotlib.patches as patches
         from collections import defaultdict
         
-        # Create directed graph
         G = nx.DiGraph()
         
-        # Add nodes and edges
         edge_labels = {}
         edge_colors = []
         node_colors = []
         nodes = set()
         
-        # Collect all unique nodes
         for conn in connections:
             nodes.add(conn["src"])
             nodes.add(conn["dest"])
         
-        # Add nodes with colors
         for node in nodes:
             G.add_node(node)
-            # Color nodes based on their role
             if any(conn["src"] == node for conn in connections):
                 if any(conn["dest"] == node for conn in connections):
-                    node_colors.append('#FFD700')  # Gold for both src and dest
+                    node_colors.append('#FFD700')
                 else:
-                    node_colors.append('#87CEEB')  # Sky blue for source only
+                    node_colors.append('#87CEEB')
             else:
-                node_colors.append('#98FB98')  # Light green for destination only
+                node_colors.append('#98FB98')
         
-        # Add edges
         for conn in connections:
             src, dest = conn["src"], conn["dest"]
             port_proto = f"{conn['port']}/{conn['protocol']}"
             
             if G.has_edge(src, dest):
-                # Append to existing edge label
                 existing_label = edge_labels.get((src, dest), "")
                 edge_labels[(src, dest)] = f"{existing_label}, {port_proto}" if existing_label else port_proto
             else:
                 G.add_edge(src, dest)
                 edge_labels[(src, dest)] = port_proto
-                edge_colors.append('#4169E1')  # Royal blue for connections
+                edge_colors.append('#4169E1')
         
-        # Create visualization
         plt.figure(figsize=(12, 8))
         plt.title("Cilium Network Policy Visualization", fontsize=16, fontweight='bold', pad=20)
         
-        # Use spring layout for better visualization
         pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
         
-        # Draw nodes
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=3000, alpha=0.8)
         
-        # Draw edges
         nx.draw_networkx_edges(G, pos, edge_color=edge_colors, arrows=True, 
                               arrowsize=20, arrowstyle='->', alpha=0.7, width=2)
         
-        # Draw labels
         nx.draw_networkx_labels(G, pos, font_size=10, font_weight='bold')
         
-        # Draw edge labels (port/protocol info)
         edge_pos = {}
         for edge, label in edge_labels.items():
             x1, y1 = pos[edge[0]]
@@ -190,7 +172,6 @@ def _create_network_graph(connections: List[Dict[str, Any]], output_path: str = 
             plt.annotate(edge_labels[edge], label_pos, fontsize=8, ha='center', 
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7))
         
-        # Add legend
         legend_elements = [
             patches.Patch(color='#87CEEB', label='Source Only'),
             patches.Patch(color='#98FB98', label='Destination Only'),
@@ -202,7 +183,6 @@ def _create_network_graph(connections: List[Dict[str, Any]], output_path: str = 
         plt.axis('off')
         plt.tight_layout()
         
-        # Save the graph
         full_path = Path(output_path).absolute()
         plt.savefig(full_path, dpi=300, bbox_inches='tight')
         plt.close()
@@ -219,7 +199,6 @@ def _create_ascii_visualization(connections: List[Dict[str, Any]]) -> str:
     """Create ASCII art visualization when matplotlib is not available."""
     console.print("\n[bold cyan]Policy Network Diagram (ASCII)[/bold cyan]")
     
-    # Group connections by source
     src_groups = {}
     for conn in connections:
         src = conn["src"]
@@ -227,7 +206,6 @@ def _create_ascii_visualization(connections: List[Dict[str, Any]]) -> str:
             src_groups[src] = []
         src_groups[src].append(conn)
     
-    # Create ASCII representation
     for src, conns in src_groups.items():
         console.print(f"\n[bold blue]{src}[/bold blue]")
         for i, conn in enumerate(conns):
@@ -271,7 +249,6 @@ def _load_test_results(test_results_path: Optional[str] = None) -> Dict[str, str
         with open(test_results_path) as f:
             results = json.load(f)
         
-        # Convert to lookup dict: (src, dest, port) -> status
         lookup = {}
         for result in results:
             key = (result.get("src"), result.get("dest"), str(result.get("port", "")))
@@ -312,11 +289,9 @@ def visualize_policy(
         task = progress.add_task(description="Parsing policy file...", total=100)
         
         try:
-            # Parse policy
             cnp = _read_policy(yaml_path)
             progress.update(task, advance=25, description="Extracting connections...")
             
-            # Extract connections
             connections = _extract_connections(cnp)
             
             if not connections:
@@ -325,12 +300,10 @@ def visualize_policy(
             
             progress.update(task, advance=25, description="Loading test results...")
             
-            # Load test results overlay if available
             test_lookup = _load_test_results(test_results)
             
             progress.update(task, advance=25, description="Generating visualization...")
             
-            # Create graph visualization
             graph_path = _create_network_graph(connections, output_graph)
             
             progress.update(task, advance=25, description="Finalizing...")
@@ -342,10 +315,8 @@ def visualize_policy(
     # Display summary information
     console.print(f"\n[bold green]Policy visualization complete![/bold green]")
     
-    # Display connections table
     _display_connections_table(connections)
     
-    # Show test results overlay if available
     if test_lookup:
         console.print(f"\n[bold blue]Test Results Overlay:[/bold blue]")
         overlay_table = Table(box=box.SIMPLE)
@@ -368,11 +339,9 @@ def visualize_policy(
         
         console.print(overlay_table)
     
-    # Display graph path info
     if "policy_graph.png" in graph_path:
         console.print(f"\n[bold cyan]Graph saved to:[/bold cyan] [white]{graph_path}[/white]")
         
-        # Try to open graph if requested
         if show_graph:
             try:
                 import webbrowser
@@ -383,7 +352,6 @@ def visualize_policy(
     else:
         console.print(f"\n{graph_path}")
     
-    # Summary stats
     sources = set(conn["src"] for conn in connections)
     destinations = set(conn["dest"] for conn in connections)
     
