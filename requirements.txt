@@ -10,3 +10,5 @@ typer==0.19.2
 typing_extensions==4.15.0
 networkx>=3.0
 matplotlib>=3.7.0
+jsonschema>=4.17.0
+yamllint>=1.32.0
