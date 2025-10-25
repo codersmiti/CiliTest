@@ -1,4 +1,6 @@
 import typer
+import subprocess
+import sys
 from typing import Optional, List
 from pathlib import Path
 from rich.console import Console
@@ -262,6 +264,55 @@ def workflow(
         f"  Visualization: [white]{output_graph if 'png' in output_graph else 'Console ASCII'}[/white]",
         border_style="green"
     ))
+
+
+@app.command()
+def dashboard(
+    port: int = typer.Option(8501, "--port", help="Port to run the dashboard on"),
+    auto_open: bool = typer.Option(True, "--open/--no-open", help="Automatically open browser")
+):
+    """Launch the interactive web dashboard for policy visualization."""
+    dashboard_path = Path("dashboard.py")
+    
+    if not dashboard_path.exists():
+        console.print("[red]Dashboard file not found: dashboard.py[/red]")
+        console.print("[dim]Make sure you're in the correct directory[/dim]")
+        raise typer.Exit(1)
+    
+    console.print(Panel.fit(
+        f"[bold cyan]Starting Cilium Policy Dashboard[/bold cyan]\n"
+        f"Port: [white]{port}[/white]\n"
+        f"URL: [white]http://localhost:{port}[/white]\n"
+        f"Auto-open: [white]{'Yes' if auto_open else 'No'}[/white]",
+        border_style="cyan"
+    ))
+    
+    console.print("[dim]Press Ctrl+C to stop the dashboard[/dim]")
+    
+    try:
+        # Build streamlit command
+        cmd = [
+            sys.executable, "-m", "streamlit", "run", 
+            str(dashboard_path),
+            f"--server.port={port}",
+            "--browser.gatherUsageStats=false"
+        ]
+        
+        if not auto_open:
+            cmd.append("--server.headless=true")
+        
+        # Launch Streamlit
+        subprocess.run(cmd)
+        
+    except KeyboardInterrupt:
+        console.print("\n[green]Dashboard stopped[/green]")
+    except FileNotFoundError:
+        console.print("[red]Streamlit not found. Please install it:[/red]")
+        console.print("[dim]pip install streamlit[/dim]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error starting dashboard: {e}[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
