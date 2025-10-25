@@ -1,0 +1,63 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: generated-policy
+specs:
+- egress:
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: '80'
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        app: database
+    toPorts:
+    - ports:
+      - port: '5432'
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        app: cache
+    toPorts:
+    - ports:
+      - port: '6379'
+        protocol: TCP
+  endpointSelector:
+    matchLabels:
+      app: frontend
+- egress:
+  - toEndpoints:
+    - matchLabels:
+        app: database
+    toPorts:
+    - ports:
+      - port: '5432'
+        protocol: TCP
+  endpointSelector:
+    matchLabels:
+      app: backend
+- egress:
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: '6379'
+        protocol: TCP
+  endpointSelector:
+    matchLabels:
+      app: cache
+- egress:
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: '80'
+        protocol: TCP
+  endpointSelector:
+    matchLabels:
+      app: database

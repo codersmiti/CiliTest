@@ -25,34 +25,173 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Clean, professional CSS with proper contrast
 st.markdown("""
 <style>
-.metric-card {
-    background-color: #f0f2f6;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin: 0.5rem 0;
-}
+    /* Global improvements */
+    .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 1200px;
+    }
+    
+    /* Header */
+    .main-header {
+        background: #2c3e50;
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        border: 1px solid #34495e;
+    }
+    
+    .main-header h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+        color: #ffffff;
+    }
+    
+    .main-header p {
+        margin: 0.5rem 0 0 0;
+        color: #bdc3c7;
+        font-size: 1rem;
+    }
+    
+    /* Metric cards with proper contrast */
+    .metric-card {
+        background: #ffffff;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+        border: 1px solid #e1e8ed;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-.success-metric {
-    background-color: #d4edda;
-    border-left: 4px solid #28a745;
-}
+    .success-metric {
+        background: #ffffff;
+        border-left: 4px solid #27ae60;
+        color: #2c3e50;
+    }
 
-.warning-metric {
-    background-color: #fff3cd;
-    border-left: 4px solid #ffc107;
-}
+    .warning-metric {
+        background: #ffffff;
+        border-left: 4px solid #f39c12;
+        color: #2c3e50;
+    }
 
-.error-metric {
-    background-color: #f8d7da;
-    border-left: 4px solid #dc3545;
-}
+    .error-metric {
+        background: #ffffff;
+        border-left: 4px solid #e74c3c;
+        color: #2c3e50;
+    }
 
-.stTabs [data-baseweb="tab-list"] {
-    gap: 2rem;
-}
+    .info-metric {
+        background: #ffffff;
+        border-left: 4px solid #3498db;
+        color: #2c3e50;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: #3498db;
+        color: #ffffff;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        border: 1px solid #2980b9;
+    }
+    
+    .stButton > button:hover {
+        background: #2980b9;
+        border: 1px solid #1f5f8b;
+    }
+    
+    /* File uploader */
+    .stFileUploader > div > div {
+        border: 2px dashed #bdc3c7;
+        border-radius: 6px;
+        background: #f8f9fa;
+        color: #2c3e50;
+    }
+    
+    .stFileUploader > div > div:hover {
+        border-color: #3498db;
+        background: #ffffff;
+    }
+    
+    /* Network graph container */
+    .network-graph-container {
+        background: #ffffff;
+        border: 1px solid #e1e8ed;
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    
+    .network-graph-container h3 {
+        color: #2c3e50;
+        margin-top: 0;
+    }
+    
+    /* Statistics container */
+    .stats-container {
+        background: #f8f9fa;
+        border: 1px solid #e1e8ed;
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    
+    .stats-container h3 {
+        color: #2c3e50;
+        margin-top: 0;
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .status-success { background-color: #27ae60; }
+    .status-warning { background-color: #f39c12; }
+    .status-error { background-color: #e74c3c; }
+    .status-info { background-color: #3498db; }
+    
+    /* Sidebar improvements */
+    .sidebar .sidebar-content {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    
+    /* Text color fixes for all content */
+    .stats-container div[style*="color: #667eea"] {
+        color: #2c3e50 !important;
+    }
+    
+    .stats-container div[style*="color: #28a745"] {
+        color: #27ae60 !important;
+    }
+    
+    .stats-container div[style*="color: #17a2b8"] {
+        color: #3498db !important;
+    }
+    
+    /* Ensure all metric text is dark */
+    .metric-card strong {
+        color: #2c3e50 !important;
+    }
+    
+    .metric-card h3 {
+        color: #2c3e50 !important;
+    }
+    
+    .metric-card p {
+        color: #34495e !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -228,30 +367,56 @@ def display_validation_results(result: ValidationResult):
     
     with col1:
         if result.is_valid:
-            st.success("Valid Policy")
+            st.markdown("""
+            <div class="metric-card success-metric">
+                <div style="display: flex; align-items: center;">
+                    <span class="status-indicator status-success"></span>
+                    <strong>Valid Policy</strong>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.error("Invalid Policy")
+            st.markdown("""
+            <div class="metric-card error-metric">
+                <div style="display: flex; align-items: center;">
+                    <span class="status-indicator status-error"></span>
+                    <strong>Invalid Policy</strong>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     with col2:
         error_count = len(result.yaml_syntax_errors) + len(result.schema_errors)
-        if error_count > 0:
-            st.metric("Errors", error_count, delta=None)
-        else:
-            st.metric("Errors", 0)
+        st.markdown(f"""
+        <div class="metric-card {'error-metric' if error_count > 0 else 'success-metric'}">
+            <div style="text-align: center;">
+                <h3 style="margin: 0;">{error_count}</h3>
+                <p style="margin: 0; font-weight: 600;">Errors</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
         warning_count = len(result.yaml_lint_warnings)
-        if warning_count > 0:
-            st.metric("Warnings", warning_count)
-        else:
-            st.metric("Warnings", 0)
+        st.markdown(f"""
+        <div class="metric-card {'warning-metric' if warning_count > 0 else 'success-metric'}">
+            <div style="text-align: center;">
+                <h3 style="margin: 0;">{warning_count}</h3>
+                <p style="margin: 0; font-weight: 600;">Warnings</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col4:
         suggestion_count = len(result.suggestions)
-        if suggestion_count > 0:
-            st.metric("Suggestions", suggestion_count)
-        else:
-            st.metric("Suggestions", 0)
+        st.markdown(f"""
+        <div class="metric-card {'info-metric' if suggestion_count > 0 else 'success-metric'}">
+            <div style="text-align: center;">
+                <h3 style="margin: 0;">{suggestion_count}</h3>
+                <p style="margin: 0; font-weight: 600;">Suggestions</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Show detailed errors if any
     if result.yaml_syntax_errors or result.schema_errors:
@@ -310,27 +475,66 @@ def create_policy_stats_chart(policy_data):
     return fig
 
 def main():
-    st.title("Cilium Network Policy Dashboard")
-    st.markdown("Convert, validate, and visualize Cilium Network Policies")
+    # Clean header
+    st.markdown("""
+    <div class="main-header">
+        <h1>Cilium Network Policy Dashboard</h1>
+        <p>Convert, validate, and visualize Cilium Network Policies</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Check if we have policy data for conditional navigation
     has_policy = 'current_policy' in st.session_state and st.session_state['current_policy']
     
-    # Sidebar navigation
-    st.sidebar.title("Navigation")
-    
-    # Build page options based on available data
-    page_options = ["Convert & Validate", "File Upload", "Policy Explorer"]
-    if has_policy:
-        page_options.insert(1, "Policy Visualizer")
-    
-    page = st.sidebar.selectbox("Choose a page", page_options)
-    
-    # Show status in sidebar
-    if has_policy:
-        st.sidebar.success("Policy loaded and ready for visualization")
-    else:
-        st.sidebar.info("Convert or upload a policy to enable visualization")
+    # Clean sidebar navigation
+    with st.sidebar:
+        st.markdown("### Navigation")
+        
+        # Build page options based on available data
+        page_options = ["Convert & Validate", "File Upload", "Policy Explorer"]
+        if has_policy:
+            page_options.insert(1, "Policy Visualizer")
+        
+        page = st.selectbox("Choose a page", page_options)
+        
+        st.markdown("---")
+        
+        # Status display in sidebar
+        st.markdown("### Status")
+        if has_policy:
+            st.markdown("""
+            <div style="background: #ffffff; padding: 1rem; border-radius: 6px; 
+                        border-left: 4px solid #27ae60; color: #2c3e50;">
+                <strong>Policy Loaded</strong><br>
+                <small>Ready for visualization and analysis</small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background: #ffffff; padding: 1rem; border-radius: 6px; 
+                        border-left: 4px solid #3498db; color: #2c3e50;">
+                <strong>No Policy Loaded</strong><br>
+                <small>Convert or upload a policy to enable visualization</small>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Quick actions
+        st.markdown("### Quick Actions")
+        if st.button("Start New Session", use_container_width=True):
+            # Clear all session state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+        
+        if has_policy:
+            if st.button("Clear Policy", use_container_width=True):
+                if 'current_policy' in st.session_state:
+                    del st.session_state['current_policy']
+                if 'policy_file' in st.session_state:
+                    del st.session_state['policy_file']
+                st.rerun()
     
     if page == "Convert & Validate":
         st.header("Convert JSON to Cilium Policy")
@@ -423,45 +627,133 @@ def main():
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    st.subheader("Network Graph")
+                    st.markdown("""
+                    <div class="network-graph-container">
+                        <h3>Network Topology</h3>
+                    """, unsafe_allow_html=True)
+                    
                     try:
                         G = create_policy_network_graph(policy_data)
                         if len(G.nodes()) == 0:
-                            st.warning("No network connections found in this policy")
-                            st.info("This policy may not contain egress or ingress rules with endpoint connections")
+                            st.markdown("""
+                            <div style="text-align: center; padding: 2rem; color: #2c3e50;">
+                                <h4>No Network Connections Found</h4>
+                                <p>This policy may not contain egress or ingress rules with endpoint connections</p>
+                            </div>
+                            """, unsafe_allow_html=True)
                         else:
                             fig = plot_network_graph_plotly(G)
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Add network statistics
+                            st.markdown(f"""
+                            <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; 
+                                        margin-top: 1rem; color: #2c3e50; border: 1px solid #e1e8ed;">
+                                <strong>Network Statistics:</strong><br>
+                                Nodes: {len(G.nodes())} | Connections: {len(G.edges())}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
                     except Exception as graph_error:
-                        st.error(f"Error creating network graph: {graph_error}")
-                        st.info("The policy structure may not be suitable for network visualization")
+                        st.markdown(f"""
+                        <div style="background: #ffffff; padding: 1rem; border-radius: 6px; 
+                                    border-left: 4px solid #e74c3c; color: #2c3e50;">
+                            <strong>Visualization Error</strong><br>
+                            {graph_error}<br>
+                            <small>The policy structure may not be suitable for network visualization</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
                 
                 with col2:
-                    st.subheader("Policy Statistics")
+                    st.markdown("""
+                    <div class="stats-container">
+                        <h3>Policy Analytics</h3>
+                    """, unsafe_allow_html=True)
+                    
                     try:
                         stats_fig = create_policy_stats_chart(policy_data)
                         if stats_fig:
                             st.plotly_chart(stats_fig, use_container_width=True)
                         else:
-                            st.info("No statistics available for this policy")
+                            st.markdown("""
+                            <div style="text-align: center; padding: 1rem; color: #2c3e50;">
+                                <p>No statistics available for this policy</p>
+                            </div>
+                            """, unsafe_allow_html=True)
                     except Exception as stats_error:
-                        st.error(f"Error creating statistics: {stats_error}")
+                        st.markdown(f"""
+                        <div style="background: #ffffff; padding: 1rem; border-radius: 6px; 
+                                    margin-bottom: 1rem; border-left: 4px solid #e74c3c; color: #2c3e50;">
+                            <strong>Statistics Error:</strong> {stats_error}
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     # Policy summary
-                    st.subheader("Policy Summary")
+                    st.markdown("<br><h4>Policy Summary</h4>", unsafe_allow_html=True)
+                    
                     try:
                         specs = policy_data.get('specs', [policy_data.get('spec', {})])
                         valid_specs = [s for s in specs if s]
-                        st.metric("Policy Specs", len(valid_specs))
+                        
+                        # Create summary metrics
+                        summary_html = f"""
+                        <div style="background: white; padding: 1rem; border-radius: 6px; 
+                                    margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Policy Specs</span>
+                                <strong>{len(valid_specs)}</strong>
+                            </div>
+                        </div>
+                        """
                         
                         if 'G' in locals() and G:
-                            st.metric("Total Services", len(G.nodes()))
-                            st.metric("Connections", len(G.edges()))
+                            summary_html += f"""
+                            <div style="background: white; padding: 1rem; border-radius: 6px; 
+                                        margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Total Services</span>
+                                    <strong>{len(G.nodes())}</strong>
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 6px; 
+                                        margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Connections</span>
+                                    <strong>{len(G.edges())}</strong>
+                                </div>
+                            </div>
+                            """
                         else:
-                            st.metric("Total Services", 0)
-                            st.metric("Connections", 0)
+                            summary_html += """
+                            <div style="background: white; padding: 1rem; border-radius: 6px; 
+                                        margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Total Services</span>
+                                    <strong>0</strong>
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 6px; 
+                                        margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Connections</span>
+                                    <strong>0</strong>
+                                </div>
+                            </div>
+                            """
+                        
+                        st.markdown(summary_html, unsafe_allow_html=True)
+                        
                     except Exception as summary_error:
-                        st.error(f"Error creating summary: {summary_error}")
+                        st.markdown(f"""
+                        <div style="background: #ffffff; padding: 1rem; border-radius: 6px; 
+                                    border-left: 4px solid #e74c3c; color: #2c3e50;">
+                            <strong>Summary Error:</strong> {summary_error}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
                 
                 # Display policy YAML in expandable section
                 with st.expander("View Policy YAML"):
@@ -491,8 +783,9 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.subheader("Upload YAML Policy")
-            uploaded_yaml = st.file_uploader("Choose a YAML file", type=['yaml', 'yml'])
+            st.markdown("### Upload YAML Policy")
+            st.markdown("Upload your existing Cilium Network Policy YAML file for validation and visualization.")
+            uploaded_yaml = st.file_uploader("Choose a YAML file", type=['yaml', 'yml'], help="Select a .yaml or .yml file containing your Cilium Network Policy")
             
             if uploaded_yaml is not None:
                 try:
@@ -517,8 +810,9 @@ def main():
                     st.error(f"Error reading YAML file: {e}")
         
         with col2:
-            st.subheader("Upload JSON Rules")
-            uploaded_json = st.file_uploader("Choose a JSON file", type=['json'])
+            st.markdown("### Upload JSON Rules")
+            st.markdown("Upload firewall rules in JSON format to convert them to Cilium Network Policy.")
+            uploaded_json = st.file_uploader("Choose a JSON file", type=['json'], help="Select a .json file containing your firewall rules")
             
             if uploaded_json is not None:
                 try:
@@ -590,10 +884,25 @@ def main():
             st.markdown("- Converting JSON rules in the 'Convert & Validate' page")
             st.markdown("- Uploading files in the 'File Upload' page")
     
-    # Footer
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**Cilium Policy Dashboard**")
-    st.sidebar.markdown("Built with Streamlit")
+    # Clean Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; color: #6b7280; border-top: 1px solid #e1e8ed; margin-top: 3rem;">
+        <h4 style="color: #2c3e50;">Cilium Network Policy Dashboard</h4>
+        <p>Built using Streamlit, Plotly, and NetworkX</p>
+        <p><small>Convert • Validate • Visualize • Deploy</small></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Sidebar footer
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem; color: #2c3e50;">
+            <strong>CiliTest Dashboard</strong><br>
+            <small>Built with Streamlit</small>
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
