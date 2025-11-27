@@ -40,18 +40,40 @@ A comprehensive tool for converting, validating, and visualizing Cilium Network 
    cd CiliTest
    ```
 
-2. **Install dependencies:**
+2. **Create a virtual environment (recommended):**
+   ```bash
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1  # Windows PowerShell
+   # or
+   source .venv/bin/activate      # Linux/Mac
+   ```
+
+3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Launch the dashboard:**
+4. **Launch the dashboard:**
    ```bash
    streamlit run dashboard.py
    ```
 
-4. **Access the application:**
+5. **Access the application:**
    Open your browser and navigate to `http://localhost:8501`
+
+## Screenshots
+
+### Dashboard Overview
+*Screenshots coming soon...*
+
+### Convert & Validate
+*Screenshots coming soon...*
+
+### Policy Visualizer
+*Screenshots coming soon...*
+
+### Validation Results
+*Screenshots coming soon...*
 
 ## Usage Guide
 

@@ -2,3 +2,13 @@
 __pycache__/
 *.pyc
 *.png
+
+# Generated policy files
+cilium_policies.yaml
+converted_policy.yaml
+dashboard_policy.yaml
+policy_graph.png
+
+# Test results
+results.json
+test_results.json

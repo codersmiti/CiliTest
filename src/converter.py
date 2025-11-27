@@ -1,5 +1,5 @@
-# src/converter.py
-import yaml, json
+import json
+import yaml
 from collections import defaultdict
 from rich.console import Console
 from rich.table import Table

@@ -1,4 +1,3 @@
-# src/validator.py
 import yaml
 import json
 from pathlib import Path
@@ -6,14 +5,11 @@ from typing import Dict, List, Tuple, Optional, Any
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 from yamllint import config, linter
-from jsonschema import validate, ValidationError, Draft7Validator
-import io
+from jsonschema import Draft7Validator
 
 console = Console()
 
-# Cilium Network Policy JSON Schema
 CILIUM_NETWORK_POLICY_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "CiliumNetworkPolicy",
@@ -334,7 +330,6 @@ CILIUM_NETWORK_POLICY_SCHEMA = {
 }
 
 class ValidationResult:
-    """Represents the result of YAML validation."""
     
     def __init__(self):
         self.is_valid = True
@@ -481,12 +476,10 @@ def validate_policy(file_path: str, show_details: bool = True) -> ValidationResu
     if show_details:
         console.print(f"\n[bold cyan]Validating YAML Policy:[/bold cyan] {file_path}")
     
-    # Step 1: Check if file exists
     if not Path(file_path).exists():
         result.add_yaml_syntax_error(f"File not found: {file_path}")
         return result
     
-    # Step 2: Validate YAML syntax
     syntax_valid, syntax_errors, parsed_data = validate_yaml_syntax(file_path)
     for error in syntax_errors:
         result.add_yaml_syntax_error(error)
@@ -494,18 +487,15 @@ def validate_policy(file_path: str, show_details: bool = True) -> ValidationResu
     if not syntax_valid:
         return result
     
-    # Step 3: YAML linting (style and formatting)
     lint_warnings = lint_yaml_style(file_path)
     for warning in lint_warnings:
         result.add_yaml_lint_warning(warning)
     
-    # Step 4: Schema validation (only if syntax is valid)
     if parsed_data:
         schema_errors = validate_cilium_schema(parsed_data)
         for error in schema_errors:
             result.add_schema_error(error)
         
-        # Step 5: Generate suggestions
         suggestions = generate_suggestions(parsed_data, result)
         for suggestion in suggestions:
             result.add_suggestion(suggestion)
@@ -516,7 +506,6 @@ def validate_policy(file_path: str, show_details: bool = True) -> ValidationResu
 def print_validation_report(result: ValidationResult, file_path: str):
     """Print a detailed validation report."""
     
-    # Header
     if result.is_valid:
         console.print(Panel.fit(
             f"[bold green]Validation Passed[/bold green]\n"
@@ -536,17 +525,14 @@ def print_validation_report(result: ValidationResult, file_path: str):
         for i, error in enumerate(result.yaml_syntax_errors, 1):
             console.print(f"  {i}. [red]{error}[/red]")
     
-    # Schema Validation Errors
     if result.schema_errors:
         console.print("\n[bold red]Schema Validation Errors:[/bold red]")
         for i, error in enumerate(result.schema_errors, 1):
             console.print(f"  {i}. [red]{error}[/red]")
     
-    # YAML Linting Warnings
     if result.yaml_lint_warnings:
         console.print("\n[bold yellow]YAML Style Warnings:[/bold yellow]")
         
-        # Create table for warnings
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Line", width=6)
         table.add_column("Col", width=5)
@@ -566,13 +552,11 @@ def print_validation_report(result: ValidationResult, file_path: str):
         
         console.print(table)
     
-    # Suggestions
     if result.suggestions:
         console.print("\n[bold blue]Suggestions for Improvement:[/bold blue]")
         for i, suggestion in enumerate(result.suggestions, 1):
             console.print(f"  {i}. [blue]{suggestion}[/blue]")
     
-    # Summary
     if result.is_valid and not result.yaml_lint_warnings and not result.suggestions:
         console.print(f"\n[bold green]Perfect! No issues found.[/bold green]")
     elif result.is_valid:
@@ -593,7 +577,6 @@ def validate_multiple_policies(file_paths: List[str]) -> Dict[str, ValidationRes
     for file_path in file_paths:
         results[file_path] = validate_policy(file_path, show_details=False)
     
-    # Summary table
     table = Table(title="Validation Summary")
     table.add_column("File", style="cyan")
     table.add_column("Status", justify="center")

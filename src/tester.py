@@ -1,10 +1,5 @@
-import sys, io, os
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-os.environ["PYTHONIOENCODING"] = "utf-8"
-os.environ["LC_ALL"] = "C.UTF-8"
-os.environ["LANG"] = "C.UTF-8"
-
 import random
+import sys
 import json
 import subprocess
 from pathlib import Path

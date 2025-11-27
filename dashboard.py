@@ -3,19 +3,12 @@ import yaml
 import json
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 import networkx as nx
 from pathlib import Path
 import tempfile
-import io
-from typing import Dict, List, Any, Optional
 
-# Import our modules
 from src.converter import convert_rules
 from src.validator import validate_policy, ValidationResult
-from src.tester import test_policy
-import src.visualizer as viz
 
 # Page configuration
 st.set_page_config(
@@ -25,16 +18,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Clean, professional CSS with proper contrast
 st.markdown("""
 <style>
-    /* Global improvements */
     .main .block-container {
         padding-top: 1.5rem;
         max-width: 1200px;
     }
     
-    /* Header */
     .main-header {
         background: #2c3e50;
         color: #ffffff;
@@ -57,7 +47,6 @@ st.markdown("""
         font-size: 1rem;
     }
     
-    /* Metric cards with proper contrast */
     .metric-card {
         background: #ffffff;
         padding: 1rem;
@@ -91,7 +80,6 @@ st.markdown("""
         color: #2c3e50;
     }
     
-    /* Buttons */
     .stButton > button {
         background: #3498db;
         color: #ffffff;
@@ -107,7 +95,6 @@ st.markdown("""
         border: 1px solid #1f5f8b;
     }
     
-    /* File uploader */
     .stFileUploader > div > div {
         border: 2px dashed #bdc3c7;
         border-radius: 6px;
@@ -120,7 +107,6 @@ st.markdown("""
         background: #ffffff;
     }
     
-    /* Network graph container */
     .network-graph-container {
         background: #ffffff;
         border: 1px solid #e1e8ed;
@@ -133,7 +119,6 @@ st.markdown("""
         margin-top: 0;
     }
     
-    /* Statistics container */
     .stats-container {
         background: #f8f9fa;
         border: 1px solid #e1e8ed;
@@ -146,7 +131,6 @@ st.markdown("""
         margin-top: 0;
     }
     
-    /* Status indicators */
     .status-indicator {
         display: inline-block;
         width: 10px;
@@ -160,14 +144,12 @@ st.markdown("""
     .status-error { background-color: #e74c3c; }
     .status-info { background-color: #3498db; }
     
-    /* Sidebar improvements */
     .sidebar .sidebar-content {
         background: #f8f9fa;
         border-radius: 6px;
         padding: 1rem;
     }
     
-    /* Text color fixes for all content */
     .stats-container div[style*="color: #667eea"] {
         color: #2c3e50 !important;
     }
@@ -180,7 +162,6 @@ st.markdown("""
         color: #3498db !important;
     }
     
-    /* Ensure all metric text is dark */
     .metric-card strong {
         color: #2c3e50 !important;
     }
@@ -205,29 +186,21 @@ def load_sample_data():
 
 def convert_json_to_yaml(rules_data, output_name="dashboard_policy.yaml"):
     """Convert JSON rules to YAML policy."""
-    # Save JSON to temp file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_json:
         json.dump(rules_data, temp_json, indent=2)
         temp_json_path = temp_json.name
     
     try:
-        # Convert using our converter
         convert_rules(temp_json_path, output_name)
-        
-        # Read the generated YAML
         with open(output_name, 'r') as f:
             yaml_content = f.read()
-        
         return yaml_content, output_name
     finally:
-        # Clean up temp file
         Path(temp_json_path).unlink(missing_ok=True)
 
 def create_policy_network_graph(policy_data):
     """Create an interactive network graph from policy data."""
     G = nx.DiGraph()
-    
-    # Extract connections from policy specs
     if isinstance(policy_data, dict):
         specs = policy_data.get('specs', [policy_data.get('spec', {})])
         
@@ -235,15 +208,10 @@ def create_policy_network_graph(policy_data):
             if not spec:
                 continue
                 
-            # Get source endpoint
             endpoint_selector = spec.get('endpointSelector', {})
             source_labels = endpoint_selector.get('matchLabels', {})
             source_app = source_labels.get('app', 'unknown')
-            
-            # Add source node
             G.add_node(source_app, node_type='source', color='lightblue')
-            
-            # Process egress rules
             egress_rules = spec.get('egress', [])
             for rule in egress_rules:
                 to_endpoints = rule.get('toEndpoints', [])
@@ -252,11 +220,7 @@ def create_policy_network_graph(policy_data):
                 for endpoint in to_endpoints:
                     target_labels = endpoint.get('matchLabels', {})
                     target_app = target_labels.get('app', 'unknown')
-                    
-                    # Add target node
                     G.add_node(target_app, node_type='target', color='lightgreen')
-                    
-                    # Add edge with port information
                     port_info = []
                     for port_rule in to_ports:
                         ports = port_rule.get('ports', [])
@@ -274,10 +238,7 @@ def plot_network_graph_plotly(G):
         return go.Figure().add_annotation(text="No network data to display", 
                                         xref="paper", yref="paper", x=0.5, y=0.5)
     
-    # Create layout
     pos = nx.spring_layout(G, k=3, iterations=50)
-    
-    # Extract edges
     edge_x = []
     edge_y = []
     edge_info = []
@@ -297,7 +258,6 @@ def plot_network_graph_plotly(G):
         mode='lines'
     )
     
-    # Extract nodes
     node_x = []
     node_y = []
     node_text = []
@@ -310,7 +270,6 @@ def plot_network_graph_plotly(G):
         node_y.append(y)
         node_text.append(node)
         
-        # Color by node type
         node_type = G.nodes[node].get('node_type', 'unknown')
         if node_type == 'source':
             node_color.append('lightblue')
@@ -319,11 +278,8 @@ def plot_network_graph_plotly(G):
         else:
             node_color.append('lightgray')
         
-        # Size by connectivity
         connections = len(list(G.neighbors(node))) + len(list(G.predecessors(node)))
         node_size.append(max(20, connections * 10))
-    
-    # Create node trace
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode='markers+text',
@@ -337,7 +293,6 @@ def plot_network_graph_plotly(G):
         )
     )
     
-    # Create figure
     fig = go.Figure(data=[edge_trace, node_trace],
                    layout=go.Layout(
                        title=dict(
@@ -417,8 +372,6 @@ def display_validation_results(result: ValidationResult):
             </div>
         </div>
         """, unsafe_allow_html=True)
-    
-    # Show detailed errors if any
     if result.yaml_syntax_errors or result.schema_errors:
         st.subheader("Validation Errors")
         all_errors = result.yaml_syntax_errors + result.schema_errors
@@ -430,7 +383,7 @@ def display_validation_results(result: ValidationResult):
         st.subheader("Style Warnings")
         warnings_df = pd.DataFrame(result.yaml_lint_warnings)
         if not warnings_df.empty:
-            st.dataframe(warnings_df, use_container_width=True)
+            st.dataframe(warnings_df, width='stretch')
     
     # Show suggestions if any
     if result.suggestions:
@@ -445,7 +398,6 @@ def create_policy_stats_chart(policy_data):
     
     specs = policy_data.get('specs', [policy_data.get('spec', {})])
     
-    # Count different rule types
     ingress_count = 0
     egress_count = 0
     endpoints_count = 0
@@ -458,7 +410,6 @@ def create_policy_stats_chart(policy_data):
         if spec.get('endpointSelector'):
             endpoints_count += 1
     
-    # Create bar chart
     fig = go.Figure(data=[
         go.Bar(name='Policy Components', 
                x=['Ingress Rules', 'Egress Rules', 'Endpoint Selectors'],
@@ -475,7 +426,6 @@ def create_policy_stats_chart(policy_data):
     return fig
 
 def main():
-    # Clean header
     st.markdown("""
     <div class="main-header">
         <h1>Cilium Network Policy Dashboard</h1>
@@ -483,14 +433,11 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Check if we have policy data for conditional navigation
     has_policy = 'current_policy' in st.session_state and st.session_state['current_policy']
     
-    # Clean sidebar navigation
     with st.sidebar:
         st.markdown("### Navigation")
         
-        # Build page options based on available data
         page_options = ["Convert & Validate", "File Upload", "Policy Explorer"]
         if has_policy:
             page_options.insert(1, "Policy Visualizer")
@@ -499,7 +446,6 @@ def main():
         
         st.markdown("---")
         
-        # Status display in sidebar
         st.markdown("### Status")
         if has_policy:
             st.markdown("""
@@ -520,16 +466,14 @@ def main():
         
         st.markdown("---")
         
-        # Quick actions
         st.markdown("### Quick Actions")
-        if st.button("Start New Session", use_container_width=True):
-            # Clear all session state
+        if st.button("Start New Session", width='stretch'):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
         
         if has_policy:
-            if st.button("Clear Policy", use_container_width=True):
+            if st.button("Clear Policy", width='stretch'):
                 if 'current_policy' in st.session_state:
                     del st.session_state['current_policy']
                 if 'policy_file' in st.session_state:
@@ -544,7 +488,6 @@ def main():
         with col1:
             st.subheader("Input: JSON Firewall Rules")
             
-            # Option to use sample data or custom input
             input_type = st.radio("Input Type", ["Sample Data", "Custom JSON"])
             
             if input_type == "Sample Data":
@@ -570,7 +513,6 @@ def main():
         with col2:
             st.subheader("Output: Cilium Network Policy")
             
-            # Check if we have converted content in session state
             if 'current_policy' in st.session_state and st.session_state['current_policy']:
                 st.code(st.session_state['current_policy'], language='yaml')
                 
@@ -580,7 +522,6 @@ def main():
                     display_validation_results(validation_result)
                 
                 if st.button("Convert New JSON", type="secondary"):
-                    # Clear existing policy to allow new conversion
                     del st.session_state['current_policy']
                     if 'policy_file' in st.session_state:
                         del st.session_state['policy_file']
@@ -593,16 +534,14 @@ def main():
                             with st.spinner("Converting JSON to YAML..."):
                                 yaml_content, yaml_file = convert_json_to_yaml(json_data)
                             
-                            # Store in session state for persistence
                             st.session_state['current_policy'] = yaml_content
                             st.session_state['policy_file'] = yaml_file
                             
                             st.success("Policy converted successfully! The output will appear above.")
-                            st.rerun()  # Refresh to show the converted content
+                            st.rerun()
                             
                         except Exception as e:
                             st.error(f"Conversion failed: {e}")
-                            # Clear any partial state
                             if 'current_policy' in st.session_state:
                                 del st.session_state['current_policy']
                             if 'policy_file' in st.session_state:
@@ -613,7 +552,6 @@ def main():
     elif page == "Policy Visualizer":
         st.header("Policy Network Visualization")
         
-        # This page is only shown when we have policy data
         if 'current_policy' in st.session_state and st.session_state['current_policy']:
             try:
                 with st.spinner("Loading policy data..."):
@@ -623,7 +561,6 @@ def main():
                     st.error("Policy data is empty or invalid")
                     return
                 
-                # Create two columns for different visualizations
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
@@ -643,9 +580,8 @@ def main():
                             """, unsafe_allow_html=True)
                         else:
                             fig = plot_network_graph_plotly(G)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                             
-                            # Add network statistics
                             st.markdown(f"""
                             <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; 
                                         margin-top: 1rem; color: #2c3e50; border: 1px solid #e1e8ed;">
@@ -675,7 +611,7 @@ def main():
                     try:
                         stats_fig = create_policy_stats_chart(policy_data)
                         if stats_fig:
-                            st.plotly_chart(stats_fig, use_container_width=True)
+                            st.plotly_chart(stats_fig, width='stretch')
                         else:
                             st.markdown("""
                             <div style="text-align: center; padding: 1rem; color: #2c3e50;">
@@ -690,14 +626,12 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Policy summary
                     st.markdown("<br><h4>Policy Summary</h4>", unsafe_allow_html=True)
                     
                     try:
                         specs = policy_data.get('specs', [policy_data.get('spec', {})])
                         valid_specs = [s for s in specs if s]
                         
-                        # Create summary metrics
                         summary_html = f"""
                         <div style="background: white; padding: 1rem; border-radius: 6px; 
                                     margin: 0.5rem 0; border: 1px solid #e1e8ed; color: #2c3e50;">
@@ -755,11 +689,9 @@ def main():
                     
                     st.markdown("</div>", unsafe_allow_html=True)
                 
-                # Display policy YAML in expandable section
                 with st.expander("View Policy YAML"):
                     st.code(st.session_state['current_policy'], language='yaml')
                 
-                # Clear policy button
                 if st.button("Clear Current Policy", type="secondary"):
                     del st.session_state['current_policy']
                     if 'policy_file' in st.session_state:
@@ -773,7 +705,6 @@ def main():
                 st.error(f"Error loading policy: {e}")
                 st.info("There may be an issue with the policy data format")
         else:
-            # This shouldn't happen since page is conditionally shown
             st.error("No policy data available")
             st.info("Please convert or upload a policy first")
     
@@ -792,17 +723,14 @@ def main():
                     yaml_content = uploaded_yaml.read().decode('utf-8')
                     st.code(yaml_content, language='yaml')
                     
-                    # Save to temp file for validation
                     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_yaml:
                         temp_yaml.write(yaml_content)
                         temp_yaml_path = temp_yaml.name
                     
-                    # Validate uploaded policy
                     if st.button("Validate Uploaded Policy"):
                         validation_result = validate_policy(temp_yaml_path, show_details=False)
                         display_validation_results(validation_result)
                     
-                    # Store for visualization
                     st.session_state['current_policy'] = yaml_content
                     st.session_state['policy_file'] = temp_yaml_path
                     
@@ -824,7 +752,6 @@ def main():
                         yaml_content, yaml_file = convert_json_to_yaml(json_data)
                         st.code(yaml_content, language='yaml')
                         
-                        # Validate converted policy
                         validation_result = validate_policy(yaml_file, show_details=False)
                         display_validation_results(validation_result)
                         
@@ -840,7 +767,6 @@ def main():
     elif page == "Policy Explorer":
         st.header("Policy Explorer")
         
-        # List available policy files
         policy_files = []
         for pattern in ["*.yaml", "*.yml"]:
             policy_files.extend(Path(".").glob(pattern))
@@ -884,7 +810,6 @@ def main():
             st.markdown("- Converting JSON rules in the 'Convert & Validate' page")
             st.markdown("- Uploading files in the 'File Upload' page")
     
-    # Clean Footer
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; padding: 2rem; color: #6b7280; border-top: 1px solid #e1e8ed; margin-top: 3rem;">
@@ -894,7 +819,6 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar footer
     with st.sidebar:
         st.markdown("---")
         st.markdown("""

@@ -1,20 +1,18 @@
 import json
 import yaml
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 import subprocess
 import sys
 
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich import box
 
 console = Console()
 
 def _check_and_install_visualization_deps():
-    """Check and install visualization dependencies if needed."""
     required_packages = ['networkx', 'matplotlib']
     missing_packages = []
     
@@ -48,7 +46,6 @@ def _check_and_install_visualization_deps():
 
 
 def _read_policy(yaml_path: str) -> Dict[str, Any]:
-    """Read and parse YAML policy file."""
     p = Path(yaml_path)
     if not p.exists():
         raise FileNotFoundError(f"Policy file not found: {yaml_path}")
@@ -58,7 +55,6 @@ def _read_policy(yaml_path: str) -> Dict[str, Any]:
 
 
 def _extract_connections(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Extract connections from Cilium Network Policy."""
     connections = []
     
     specs = []
@@ -107,7 +103,6 @@ def _extract_connections(cnp: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _create_network_graph(connections: List[Dict[str, Any]], output_path: str = "policy_graph.png") -> str:
-    """Create and save a network graph visualization."""
     if not _check_and_install_visualization_deps():
         return _create_ascii_visualization(connections)
     
@@ -218,7 +213,6 @@ def _create_ascii_visualization(connections: List[Dict[str, Any]]) -> str:
 
 
 def _display_connections_table(connections: List[Dict[str, Any]]):
-    """Display connections in a Rich table format."""
     table = Table(title="Policy Connections", box=box.ROUNDED)
     table.add_column("Source", style="cyan", no_wrap=True)
     table.add_column("→", style="green", justify="center", width=3)
@@ -241,7 +235,6 @@ def _display_connections_table(connections: List[Dict[str, Any]]):
 
 
 def _load_test_results(test_results_path: Optional[str] = None) -> Dict[str, str]:
-    """Load test results if available to overlay on visualization."""
     if not test_results_path or not Path(test_results_path).exists():
         return {}
     
@@ -312,7 +305,6 @@ def visualize_policy(
             console.print(f"[red]Error visualizing policy: {e}[/red]")
             return f"Error: {e}"
     
-    # Display summary information
     console.print(f"\n[bold green]Policy visualization complete![/bold green]")
     
     _display_connections_table(connections)
@@ -364,7 +356,6 @@ def visualize_policy(
 
 
 def main():
-    """CLI entry point for standalone usage."""
     import sys
     
     if len(sys.argv) < 2:
